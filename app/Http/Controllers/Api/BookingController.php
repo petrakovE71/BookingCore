@@ -5,29 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreHuntingBookingRequest;
 use App\Http\Resources\HuntingBookingResource;
-use App\Models\HuntingBooking;
-use Illuminate\Http\JsonResponse;
+use App\Services\BookingService;
+use Symfony\Component\HttpFoundation\Response;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly BookingService $bookingService
+    ) {}
+
     /**
      * Create a new hunting tour booking.
-     *
-     * @param StoreHuntingBookingRequest $request
-     * @return HuntingBookingResource|JsonResponse
      */
-    public function store(StoreHuntingBookingRequest $request): HuntingBookingResource|JsonResponse
+    public function store(StoreHuntingBookingRequest $request): HuntingBookingResource
     {
-        // All validation is handled in StoreHuntingBookingRequest
-        // including guide availability and participant count
-
-        $booking = HuntingBooking::create($request->validated());
-
-        // Load the guide relationship for the response
-        $booking->load('guide');
+        $booking = $this->bookingService->createBooking($request->validated());
 
         return (new HuntingBookingResource($booking))
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode(Response::HTTP_CREATED);
     }
 }
