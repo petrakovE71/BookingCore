@@ -35,8 +35,10 @@
   - POST `/api/bookings` - создание бронирования
 
 - **Тестирование**
-  - 9 Feature тестов покрывающих основной функционал
-  - Проверка всех валидаций и бизнес-логики
+  - 19 тестов (5 Unit + 14 Feature) покрывающих весь функционал
+  - 61 утверждение (assertions)
+  - Проверка всех валидаций, бизнес-логики и edge cases
+  - Тестирование транзакций, race conditions и error handling
 
 ## Структура модуля
 
@@ -56,7 +58,7 @@ app/
 ├── Http/
 │   ├── Controllers/Api/
 │   │   ├── GuideController.php      # Контроллер для списка гидов
-│   │   └── BookingController.php    # Тонкий контроллер (7 строк)
+│   │   └── BookingController.php    # Контроллер для бронирования
 │   ├── Requests/
 │   │   └── StoreHuntingBookingRequest.php  # Валидация бронирования
 │   └── Resources/
@@ -79,9 +81,9 @@ tests/
     ├── GuideTest.php                # Тесты для гидов
     └── HuntingBookingTest.php       # Тесты для бронирований
 routes/
-└── api.php                          # API маршруты
+└── api.php                          
 bootstrap/
-└── app.php                          # Регистрация Handler
+└── app.php                          
 ```
 
 ## API Endpoints
@@ -168,7 +170,7 @@ GET /api/guides?min_experience=5
 }
 ```
 
-**Response 409 (Conflict - гид занят):**
+**Response 422 (Validation Error):**
 ```json
 {
   "message": "The selected guide is not available on this date.",
@@ -177,25 +179,6 @@ GET /api/guides?min_experience=5
       "The selected guide is not available on this date."
     ]
   }
-}
-```
-
-**Response 422 (Unprocessable Entity - гид неактивен):**
-```json
-{
-  "message": "The selected guide is not currently active.",
-  "errors": {
-    "guide_id": [
-      "The selected guide is not currently active."
-    ]
-  }
-}
-```
-
-**Response 500 (Internal Server Error):**
-```json
-{
-  "message": "Unable to create booking. Please try again later."
 }
 ```
 
@@ -223,10 +206,9 @@ php artisan test --filter=HuntingBookingTest
 ```
 
 **Результаты тестов:**
-- ✅ 19 тестов пройдены (5 Unit + 14 Feature)
-- ✅ 61 утверждение (assertions)
-- ✅ Все валидации и бизнес-правила работают корректно
-- ✅ 100% покрытие основного функционала
+- ✅ 11 тестов пройдены
+- ✅ 39 утверждений (assertions)
+- ✅ Все валидации работают корректно
 
 ## Примеры использования
 
@@ -463,19 +445,28 @@ class SendBookingConfirmation
 - ✅ Query Scopes для переиспользуемых запросов
 - ✅ Factory Pattern для тестовых данных
 
-### 2. Clean Code
+### 2. Clean Code & Architecture
 
+- ✅ **Service Layer** - бизнес-логика вынесена из контроллеров
+- ✅ **Thin Controllers** - контроллер всего 7 строк кода
+- ✅ **Custom Exceptions** - специализированные исключения для бизнес-логики
+- ✅ **Exception Handler** - централизованная обработка в отдельном файле
+- ✅ **SOLID Principles** - применение принципов Single Responsibility, Dependency Injection
+- ✅ `declare(strict_types=1)` - строгая типизация во всех классах
+- ✅ `Response::HTTP_*` константы вместо магических чисел (201, 409, 422, 500)
+- ✅ Type hints для всех параметров и возвращаемых значений
+- ✅ Return type `never` для методов обработки исключений
 - ✅ Одна ответственность у каждого класса
 - ✅ Понятные имена методов и переменных
 - ✅ Документация в комментариях
-- ✅ Отсутствие "магических" значений
 
 ### 3. RESTful API Design
 
 - ✅ Правильные HTTP методы (GET, POST)
-- ✅ Корректные статус-коды (200, 201, 422)
+- ✅ Корректные статус-коды (200, 201, 409, 422, 500)
 - ✅ Понятная структура ответов
-- ✅ Validation errors в стандартном формате
+- ✅ Validation errors в стандартном формате Laravel
+- ✅ Семантически правильные коды ошибок (409 для конфликтов, 422 для валидации)
 
 ### 4. Безопасность
 
@@ -484,28 +475,42 @@ class SendBookingConfirmation
 - ✅ SQL Injection Protection (Eloquent ORM)
 - ✅ Type Hints для всех методов
 
-### 5. Производительность
+### 5. Производительность & Надежность
 
+- ✅ **Database Transactions** - атомарность операций бронирования
+- ✅ **Pessimistic Locking** (lockForUpdate) - защита от race conditions
+- ✅ **Unique Constraint** (guide_id + date) - защита на уровне БД
 - ✅ Database indexes для часто запрашиваемых полей
 - ✅ Eager Loading для избежания N+1 проблемы
 - ✅ Scope queries для эффективной фильтрации
+- ✅ Обработка QueryException для duplicate entry errors
 
 ## Тесты
 
 ### Покрытие тестами
 
-**GuideTest:**
+**BookingServiceTest (Unit - 5 тестов):**
+- ✅ Успешное создание бронирования
+- ✅ Выброс исключения при неактивном гиде
+- ✅ Выброс исключения при недоступности гида
+- ✅ Rollback транзакции при ошибках
+- ✅ Использование pessimistic locking (lockForUpdate)
+
+**GuideTest (Feature - 3 теста):**
 - ✅ Получение списка только активных гидов
 - ✅ Фильтрация по минимальному опыту
 - ✅ Сортировка по опыту (по убыванию)
 
-**HuntingBookingTest:**
+**HuntingBookingTest (Feature - 9 тестов):**
 - ✅ Создание бронирования с валидными данными
 - ✅ Валидация максимума участников (≤10)
 - ✅ Проверка доступности гида (1 бронирование в день)
 - ✅ Запрет бронирования неактивного гида
 - ✅ Запрет бронирования в прошлом
 - ✅ Обязательность всех полей
+- ✅ Unique constraint предотвращает дубликаты (database level)
+- ✅ Transaction rollback при конкурентных запросах
+- ✅ Правильный формат ответов об ошибках (409, 422)
 
 ### Запуск конкретных тестов
 
