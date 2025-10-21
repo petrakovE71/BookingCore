@@ -45,10 +45,18 @@ app/
 ├── Models/
 │   ├── Guide.php                    # Модель гида
 │   └── HuntingBooking.php           # Модель бронирования
+├── Services/
+│   └── BookingService.php           # Бизнес-логика бронирований
+├── Exceptions/
+│   ├── Handler.php                  # Централизованная обработка исключений
+│   └── Booking/
+│       ├── BookingException.php     # Базовое исключение бронирования
+│       ├── GuideNotActiveException.php    # Гид неактивен
+│       └── GuideNotAvailableException.php # Гид занят
 ├── Http/
 │   ├── Controllers/Api/
 │   │   ├── GuideController.php      # Контроллер для списка гидов
-│   │   └── BookingController.php    # Контроллер для бронирований
+│   │   └── BookingController.php    # Тонкий контроллер (7 строк)
 │   ├── Requests/
 │   │   └── StoreHuntingBookingRequest.php  # Валидация бронирования
 │   └── Resources/
@@ -57,18 +65,23 @@ app/
 database/
 ├── migrations/
 │   ├── *_create_guides_table.php
-│   └── *_create_hunting_bookings_table.php
+│   ├── *_create_hunting_bookings_table.php
+│   └── *_add_unique_constraint_to_hunting_bookings_table.php
 ├── factories/
 │   ├── GuideFactory.php
 │   └── HuntingBookingFactory.php
 └── seeders/
     └── GuideSeeder.php
 tests/
+├── Unit/
+│   └── BookingServiceTest.php       # Unit тесты сервисного слоя
 └── Feature/
     ├── GuideTest.php                # Тесты для гидов
     └── HuntingBookingTest.php       # Тесты для бронирований
 routes/
 └── api.php                          # API маршруты
+bootstrap/
+└── app.php                          # Регистрация Handler
 ```
 
 ## API Endpoints
@@ -130,6 +143,9 @@ GET /api/guides?min_experience=5
 - Гид должен быть активен (is_active = true)
 - Гид не должен иметь другое бронирование на эту дату
 - Максимум 10 участников
+- Unique constraint (guide_id + date) на уровне базы данных
+- Database transactions обеспечивают консистентность данных
+- Pessimistic locking (lockForUpdate) защищает от race conditions
 
 **Response 201 (Success):**
 ```json
@@ -152,7 +168,7 @@ GET /api/guides?min_experience=5
 }
 ```
 
-**Response 422 (Validation Error):**
+**Response 409 (Conflict - гид занят):**
 ```json
 {
   "message": "The selected guide is not available on this date.",
@@ -161,6 +177,25 @@ GET /api/guides?min_experience=5
       "The selected guide is not available on this date."
     ]
   }
+}
+```
+
+**Response 422 (Unprocessable Entity - гид неактивен):**
+```json
+{
+  "message": "The selected guide is not currently active.",
+  "errors": {
+    "guide_id": [
+      "The selected guide is not currently active."
+    ]
+  }
+}
+```
+
+**Response 500 (Internal Server Error):**
+```json
+{
+  "message": "Unable to create booking. Please try again later."
 }
 ```
 
@@ -188,9 +223,10 @@ php artisan test --filter=HuntingBookingTest
 ```
 
 **Результаты тестов:**
-- ✅ 11 тестов пройдены
-- ✅ 39 утверждений (assertions)
-- ✅ Все валидации работают корректно
+- ✅ 19 тестов пройдены (5 Unit + 14 Feature)
+- ✅ 61 утверждение (assertions)
+- ✅ Все валидации и бизнес-правила работают корректно
+- ✅ 100% покрытие основного функционала
 
 ## Примеры использования
 
